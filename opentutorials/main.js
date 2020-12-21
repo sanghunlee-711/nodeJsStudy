@@ -32,7 +32,7 @@ var app = http.createServer(function (request, response) {
           <meta charset="utf-8">
         </head>
         <body>
-          <h1><a href="/">WEB</a></h1>
+          <h1><a href="/">WEB2</a></h1>
           ${list}
           <h2>${title === undefined ? "Welcome" : title}</h2>
           <p>${description === undefined ? "HEllo Node.js" : description}</p>
