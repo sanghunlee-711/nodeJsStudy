@@ -1,0 +1,23 @@
+{
+  "name": "testNodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "cookie.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sanghunlee-711/nodeJsStudy.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sanghunlee-711/nodeJsStudy/issues"
+  },
+  "homepage": "https://github.com/sanghunlee-711/nodeJsStudy#readme",
+  "devDependencies": {
+    "express": "^4.17.1"
+  }
+}
