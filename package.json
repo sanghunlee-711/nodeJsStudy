@@ -19,5 +19,10 @@
   "homepage": "https://github.com/sanghunlee-711/nodeJsStudy#readme",
   "devDependencies": {
     "express": "^4.17.1"
+  },
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "compression": "^1.7.4",
+    "sanitize-html": "^2.3.0"
   }
 }

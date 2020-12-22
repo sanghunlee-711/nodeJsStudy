@@ -6,62 +6,75 @@ var sanitizeHtml = require("sanitize-html");
 var template = require("./lib/template.js");
 const { response } = require("express");
 var qs = require("querystring");
+let bodyParser = require("body-parser");
+let compression = require("compression");
+
+//thirpary library(bodyparser) 써보기
+
+app.use(bodyParser.urlencoded({ extended: false })); // bodyparser가 들어오는 미들웨어를 표현하는 식임
+app.use(compression()); // 파일 전송시 압축과 해제를 도와주는 미들웨어
+app.get("*", function (request, response, next) {
+  fs.readdir("./data", function (error, filelist) {
+    request.list = filelist; //request에 list프로퍼티를 셋팅한것임
+    next(); // 그 다음 호출되어야 할 미들웨어가 담겨 있다.
+  });
+}); // get방식일때만 해당 미들웨어 사용하게 됨. 그러니까 라우트라고 생각했던곳에서의 두번째 인자인 콜백함수는 사실상 미들웨어 였다 이말이다 .. ㅇㅁㅇ...
+
+let myLogger = function (req, res, next) {
+  console.log("LOGGED");
+  next();
+};
 
 //routing-> path 마다 응답 바꿔주는거임
 // if문을 통해 실행했던것을 get과 send를 통해서 구현하는 것임
 //if문 중첩을 피할 수 있다 :)
 app.get("/", (request, response) => {
-  fs.readdir("./data", function (error, filelist) {
-    var title = "Welcome";
-    var description = "Hello, Node.js";
-    var list = template.list(filelist);
-    var html = template.HTML(
-      title,
-      list,
-      `<h2>${title}</h2>${description}`,
-      `<a href="/create">create</a>`
-    );
-    response.send(html);
-  });
+  var title = "Welcome";
+  var description = "Hello, Node.js";
+  var list = template.list(request.list);
+  var html = template.HTML(
+    title,
+    list,
+    `<h2>${title}</h2>${description}`,
+    `<a href="/create">create</a>`
+  );
+  response.send(html);
 });
 
 // 상세보기 구현
 app.get("/page/:pageId", function (request, response) {
-  fs.readdir("./data", function (error, filelist) {
-    var filteredId = path.parse(request.params.pageId).base;
-    fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
-      var title = request.params.pageId;
-      var sanitizedTitle = sanitizeHtml(title);
-      var sanitizedDescription = sanitizeHtml(description, {
-        allowedTags: ["h1"],
-      });
-      var list = template.list(filelist);
-      var html = template.HTML(
-        sanitizedTitle,
-        list,
-        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-        ` <a href="/create">create</a>
+  var filteredId = path.parse(request.params.pageId).base;
+  fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
+    var title = request.params.pageId;
+    var sanitizedTitle = sanitizeHtml(title);
+    var sanitizedDescription = sanitizeHtml(description, {
+      allowedTags: ["h1"],
+    });
+    var list = template.list(request.list);
+    var html = template.HTML(
+      sanitizedTitle,
+      list,
+      `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
+      ` <a href="/create">create</a>
           <a href="/update/${sanitizedTitle}">update</a>
           <form action="/delete_process" method="post">
             <input type="hidden" name="id" value="${sanitizedTitle}">
             <input type="submit" value="delete">
           </form>`
-      );
-      response.send(html);
-    });
+    );
+    response.send(html);
   });
 });
 
 //생성기능
 app.get("/create", (req, res) => {
-  fs.readdir("./data", function (error, filelist) {
-    var title = "WEB - create";
-    var list = template.list(filelist);
-    //form action="/create_process" 은 최상위 디렉토리에서 create_process경로를 찾는것이다 '/'를 기억하자 :)
-    var html = template.HTML(
-      title,
-      list,
-      `
+  var title = "WEB - create";
+  var list = template.list(req.list);
+  //form action="/create_process" 은 최상위 디렉토리에서 create_process경로를 찾는것이다 '/'를 기억하자 :)
+  var html = template.HTML(
+    title,
+    list,
+    `
         <form action="/create_process" method="post">
           <p><input type="text" name="title" placeholder="title"></p>
           <p>
@@ -72,14 +85,15 @@ app.get("/create", (req, res) => {
           </p>
         </form>
       `,
-      ""
-    );
-    res.send(html);
-  });
+    ""
+  );
+  res.send(html);
 });
 
 app.post("/create_process", (request, response) => {
-  var body = "";
+  // before use bodyparser
+  /*
+    var body = "";
   request.on("data", function (data) {
     body = body + data;
   });
@@ -92,19 +106,29 @@ app.post("/create_process", (request, response) => {
       response.end();
     });
   });
+  */
+
+  console.log(request.list);
+  let post = request.body; // use middleware(body parser)
+  let title = post.title;
+  let description = post.description;
+
+  fs.writeFile(`data/${title}`, description, "utf8", (err) => {
+    response.writeHead(302, { Location: `/?id =${title}` });
+    response.end();
+  });
 });
 
 //update
 app.get("/update/:pageId", (request, response) => {
-  fs.readdir("./data", function (error, filelist) {
-    let filteredId = path.parse(request.params.pageId).base;
-    fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
-      var title = filteredId;
-      var list = template.list(filelist);
-      var html = template.HTML(
-        title,
-        list,
-        `
+  let filteredId = path.parse(request.params.pageId).base;
+  fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
+    var title = filteredId;
+    var list = template.list(request.list);
+    var html = template.HTML(
+      title,
+      list,
+      `
           <form action="/update_process" method="post">
             <input type="hidden" name="id" value="${title}">
             <p><input type="text" name="title" placeholder="title" value="${title}"></p>
@@ -116,45 +140,32 @@ app.get("/update/:pageId", (request, response) => {
             </p>
           </form>
           `,
-        `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
-      );
-      response.send(html);
-    });
+      `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
+    );
+    response.send(html);
   });
 });
 
 app.post("/update_process", (request, response) => {
-  let body = "";
-  request.on("data", (data) => {
-    body = body + data;
-  });
-  request.on("end", () => {
-    let post = qs.parse(body);
-    let id = post.id;
-    let title = post.title;
-    let description = post.description;
+  let post = request.body; // use body parser
+  let id = post.id;
+  let title = post.title;
+  let description = post.description;
 
-    fs.rename(`data/${id}`, `data/${title}`, (error) => {
-      fs.writeFile(`data/${title}`, description, "utf8", (err) => {
-        response.redirect(`/?id=${title}`);
-      });
+  fs.rename(`data/${id}`, `data/${title}`, (error) => {
+    fs.writeFile(`data/${title}`, description, "utf8", (err) => {
+      response.redirect(`/?id=${title}`);
     });
   });
 });
 
 //delete
 app.post("/delete_process", (request, response) => {
-  let body = "";
-  request.on("data", (data) => {
-    body = body + data;
-  });
-  request.on("end", () => {
-    let post = qs.parse(body);
-    let id = post.id;
-    let filteredId = path.parse(id).base;
-    fs.unlink(`data/${filteredId}`, (error) => {
-      response.redirect("/");
-    });
+  let post = request.body;
+  let id = post.id;
+  let filteredId = path.parse(id).base;
+  fs.unlink(`data/${filteredId}`, (error) => {
+    response.redirect("/");
   });
 });
 
