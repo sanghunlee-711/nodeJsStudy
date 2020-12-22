@@ -20,11 +20,6 @@ app.get("*", function (request, response, next) {
   });
 }); // get방식일때만 해당 미들웨어 사용하게 됨. 그러니까 라우트라고 생각했던곳에서의 두번째 인자인 콜백함수는 사실상 미들웨어 였다 이말이다 .. ㅇㅁㅇ...
 
-let myLogger = function (req, res, next) {
-  console.log("LOGGED");
-  next();
-};
-
 //routing-> path 마다 응답 바꿔주는거임
 // if문을 통해 실행했던것을 get과 send를 통해서 구현하는 것임
 //if문 중첩을 피할 수 있다 :)
@@ -38,42 +33,13 @@ app.get("/", (request, response) => {
     `<h2>${title}</h2>${description}
     <img src = "http://localhost:3000/images/hello.jpg"  alt ="mainImage" style = "width: 300px; display: block; margin: 10px 0 ;">
     `,
-    `<a href="/create">create</a>`
+    `<a href="/topic/create">create</a>`
   );
   response.send(html);
 });
 
-// 상세보기 구현
-app.get("/page/:pageId", function (request, response, next) {
-  var filteredId = path.parse(request.params.pageId).base;
-  fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
-    if (err) {
-      next(err);
-    } else {
-      var title = request.params.pageId;
-      var sanitizedTitle = sanitizeHtml(title);
-      var sanitizedDescription = sanitizeHtml(description, {
-        allowedTags: ["h1"],
-      });
-      var list = template.list(request.list);
-      var html = template.HTML(
-        sanitizedTitle,
-        list,
-        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-        ` <a href="/create">create</a>
-            <a href="/update/${sanitizedTitle}">update</a>
-            <form action="/delete_process" method="post">
-              <input type="hidden" name="id" value="${sanitizedTitle}">
-              <input type="submit" value="delete">
-            </form>`
-      );
-      response.send(html);
-    }
-  });
-});
-
 //생성기능
-app.get("/create", (req, res) => {
+app.get("/topic/create", (req, res) => {
   var title = "WEB - create";
   var list = template.list(req.list);
   //form action="/create_process" 은 최상위 디렉토리에서 create_process경로를 찾는것이다 '/'를 기억하자 :)
@@ -81,7 +47,7 @@ app.get("/create", (req, res) => {
     title,
     list,
     `
-        <form action="/create_process" method="post">
+        <form action="/topic/create_process" method="post">
           <p><input type="text" name="title" placeholder="title"></p>
           <p>
             <textarea name="description" placeholder="description"></textarea>
@@ -96,7 +62,7 @@ app.get("/create", (req, res) => {
   res.send(html);
 });
 
-app.post("/create_process", (request, response) => {
+app.post("/topic/create_process", (request, response) => {
   // before use bodyparser
   /*
     var body = "";
@@ -120,13 +86,12 @@ app.post("/create_process", (request, response) => {
   let description = post.description;
 
   fs.writeFile(`data/${title}`, description, "utf8", (err) => {
-    response.writeHead(302, { Location: `/?id =${title}` });
-    response.end();
+    response.redirect(`/topic/${title}`);
   });
 });
 
 //update
-app.get("/update/:pageId", (request, response) => {
+app.get("/topic/update/:pageId", (request, response) => {
   let filteredId = path.parse(request.params.pageId).base;
   fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
     var title = filteredId;
@@ -135,7 +100,7 @@ app.get("/update/:pageId", (request, response) => {
       title,
       list,
       `
-          <form action="/update_process" method="post">
+          <form action="/topic/update_process" method="post">
             <input type="hidden" name="id" value="${title}">
             <p><input type="text" name="title" placeholder="title" value="${title}"></p>
             <p>
@@ -146,13 +111,13 @@ app.get("/update/:pageId", (request, response) => {
             </p>
           </form>
           `,
-      `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
+      `<a href="/topic/create">create</a> <a href="/topic/update/${title}">update</a>`
     );
     response.send(html);
   });
 });
 
-app.post("/update_process", (request, response) => {
+app.post("/topic/update_process", (request, response) => {
   let post = request.body; // use body parser
   let id = post.id;
   let title = post.title;
@@ -160,18 +125,47 @@ app.post("/update_process", (request, response) => {
 
   fs.rename(`data/${id}`, `data/${title}`, (error) => {
     fs.writeFile(`data/${title}`, description, "utf8", (err) => {
-      response.redirect(`/?id=${title}`);
+      response.redirect(`/topic/${title}`);
     });
   });
 });
 
 //delete
-app.post("/delete_process", (request, response) => {
+app.post("/topic/delete_process", (request, response) => {
   let post = request.body;
   let id = post.id;
   let filteredId = path.parse(id).base;
   fs.unlink(`data/${filteredId}`, (error) => {
     response.redirect("/");
+  });
+});
+
+// 상세보기 구현
+app.get("/topic/:pageId", function (request, response, next) {
+  var filteredId = path.parse(request.params.pageId).base;
+  fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
+    if (err) {
+      next(err);
+    } else {
+      var title = request.params.pageId;
+      var sanitizedTitle = sanitizeHtml(title);
+      var sanitizedDescription = sanitizeHtml(description, {
+        allowedTags: ["h1"],
+      });
+      var list = template.list(request.list);
+      var html = template.HTML(
+        sanitizedTitle,
+        list,
+        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
+        ` <a href="/topic/create">create</a>
+            <a href="/topic/update/${sanitizedTitle}">update</a>
+            <form action="/topic/delete_process" method="post">
+              <input type="hidden" name="id" value="${sanitizedTitle}">
+              <input type="submit" value="delete">
+            </form>`
+      );
+      response.send(html);
+    }
   });
 });
 
