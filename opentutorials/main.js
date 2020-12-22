@@ -1,59 +1,27 @@
 var http = require("http");
-var fs = require("fs"); // fs module임
-const url = require("url");
+var fs = require("fs");
+var url = require("url");
 var qs = require("querystring");
-
-const templateHTML = (title, list, body) => {
-  return `
-  <!doctype html>
-        <html>
-        <head>
-          <title>WEB1 - ${title}</title>
-          <meta charset="utf-8">
-        </head>
-        <body>
-          <h1><a href="/">WEB</a></h1>
-          ${list}
-          <a href = "/create">create</a>
-          ${body}
-        </body>
-        </html>
-  `;
-};
-
-const templateList = (filelist) => {
-  let list = "<ul>";
-  let i = 0;
-  while (i < filelist.length) {
-    list = list + `<li><a href = "/?id=${filelist[i]}">${filelist[i]}</a></li>`;
-    i = i + 1;
-  }
-  list = list + "</ul>";
-  return list;
-};
+var template = require("./lib/template.js");
 
 var app = http.createServer(function (request, response) {
   var _url = request.url;
-  let queryData = url.parse(_url, true).query;
-  let title = queryData.id;
-  let pathname = url.parse(_url, true).pathname;
-  const testFolder = `./data`;
-
-  //함수로 나눌수 있음 .. list 만드는거나 등등 ..
-
+  var queryData = url.parse(_url, true).query;
+  var pathname = url.parse(_url, true).pathname;
   if (pathname === "/") {
     if (queryData.id === undefined) {
-      fs.readdir(testFolder, function (error, filelist) {
-        let title = "Welcome";
-        let description = "Hello, Node.js";
-        let list = templateList(filelist);
-        let template = templateHTML(
+      fs.readdir("./data", function (error, filelist) {
+        var title = "Welcome";
+        var description = "Hello, Node.js";
+        var list = template.list(filelist);
+        var html = template.HTML(
           title,
           list,
-          `<h2>${title}</h2>${description}`
+          `<h2>${title}</h2>${description}`,
+          `<a href="/create">create</a>`
         );
         response.writeHead(200);
-        response.end(template);
+        response.end(html);
       });
     } else {
       fs.readdir("./data", function (error, filelist) {
@@ -61,71 +29,123 @@ var app = http.createServer(function (request, response) {
           `data/${queryData.id}`,
           "utf8",
           function (err, description) {
-            let title = queryData.id;
-            let list = templateList(filelist);
-            let template = templateHTML(
+            var title = queryData.id;
+            var list = template.list(filelist);
+            var html = template.HTML(
               title,
               list,
-              `<h2>${title}</h2>${description}`
+              `<h2>${title}</h2>${description}`,
+              ` <a href="/create">create</a>
+                <a href="/update?id=${title}">update</a>
+                <form action="delete_process" method="post">
+                  <input type="hidden" name="id" value="${title}">
+                  <input type="submit" value="delete">
+                </form>`
             );
             response.writeHead(200);
-            response.end(template);
+            response.end(html);
           }
         );
       });
     }
   } else if (pathname === "/create") {
     fs.readdir("./data", function (error, filelist) {
-      let title = "WEB-CREATE";
-      let list = templateList(filelist);
-      let template = templateHTML(
+      var title = "WEB - create";
+      var list = template.list(filelist);
+      var html = template.HTML(
         title,
         list,
         `
-        <form action="http://localhost:3000/create_process" method="post">
-        <p><input type="text" name="title" placeholder="title"></p>
-        <p>
-          <textarea name="description" placeholder="description"></textarea>
-        </p>
-        <p>
-          <input type="submit">
-        </p>
-      </form>
-      `
+          <form action="/create_process" method="post">
+            <p><input type="text" name="title" placeholder="title"></p>
+            <p>
+              <textarea name="description" placeholder="description"></textarea>
+            </p>
+            <p>
+              <input type="submit">
+            </p>
+          </form>
+        `,
+        ""
       );
       response.writeHead(200);
-      response.end(template);
+      response.end(html);
     });
   } else if (pathname === "/create_process") {
-    let body = "";
-
-    // post 방식으로 전송되는 데이터가 많을 시 조각으로 데이터를 가져오고 이 때 콜백함수 콜함
+    var body = "";
     request.on("data", function (data) {
       body = body + data;
-
-      //If too mush post data , kill the connection
-      // if (body.length > 1e6);
-      // request.connection.destroy();
     });
-
-    // 더이상 조각조각 들어올 데이터가 없으면 End로 넘어감
     request.on("end", function () {
-      var post = qs.parse(body); // it shows data that saved in body
-      let title = post.title;
-      let description = post.description;
-      //경로, 내용 , utf-8, 콜백함수 를 통해 writeFile 메서드 사용을 통한 디렉토리 내에 파일 생성
+      var post = qs.parse(body);
+      var title = post.title;
+      var description = post.description;
       fs.writeFile(`data/${title}`, description, "utf8", function (err) {
-        //redirection
         response.writeHead(302, { Location: `/?id=${title}` });
+        response.end();
+      });
+    });
+  } else if (pathname === "/update") {
+    fs.readdir("./data", function (error, filelist) {
+      fs.readFile(`data/${queryData.id}`, "utf8", function (err, description) {
+        var title = queryData.id;
+        var list = template.list(filelist);
+        var html = template.HTML(
+          title,
+          list,
+          `
+            <form action="/update_process" method="post">
+              <input type="hidden" name="id" value="${title}">
+              <p><input type="text" name="title" placeholder="title" value="${title}"></p>
+              <p>
+                <textarea name="description" placeholder="description">${description}</textarea>
+              </p>
+              <p>
+                <input type="submit">
+              </p>
+            </form>
+            `,
+          `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
+        );
+        response.writeHead(200);
+        response.end(html);
+      });
+    });
+  } else if (pathname === "/update_process") {
+    var body = "";
+    request.on("data", function (data) {
+      body = body + data;
+    });
+    request.on("end", function () {
+      var post = qs.parse(body);
+      var id = post.id;
+      var title = post.title;
+      var description = post.description;
+      fs.rename(`data/${id}`, `data/${title}`, function (error) {
+        fs.writeFile(`data/${title}`, description, "utf8", function (err) {
+          response.writeHead(302, { Location: `/?id=${title}` });
+          response.end();
+        });
+      });
+    });
+  } else if (pathname === "/delete_process") {
+    var body = "";
+    request.on("data", function (data) {
+      body = body + data;
+    });
+    request.on("end", function () {
+      var post = qs.parse(body);
+      var id = post.id;
+      fs.unlink(`data/${id}`, function (error) {
+        response.writeHead(302, { Location: `/` });
         response.end();
       });
     });
   } else {
     response.writeHead(404);
-    response.end("Not Found");
+    response.end("Not found");
   }
 });
-
 app.listen(3000, () => {
-  console.log("3000번 포트");
+  console.log("port 3000");
 });
