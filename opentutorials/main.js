@@ -10,7 +10,7 @@ let bodyParser = require("body-parser");
 let compression = require("compression");
 
 //thirpary library(bodyparser) 써보기
-
+app.use(express.static("public")); //public directory안에서 static파일을 찾는 것이다. 정적파일 사용가능하게 하는 설정
 app.use(bodyParser.urlencoded({ extended: false })); // bodyparser가 들어오는 미들웨어를 표현하는 식임
 app.use(compression()); // 파일 전송시 압축과 해제를 도와주는 미들웨어
 app.get("*", function (request, response, next) {
@@ -35,34 +35,40 @@ app.get("/", (request, response) => {
   var html = template.HTML(
     title,
     list,
-    `<h2>${title}</h2>${description}`,
+    `<h2>${title}</h2>${description}
+    <img src = "http://localhost:3000/images/hello.jpg"  alt ="mainImage" style = "width: 300px; display: block; margin: 10px 0 ;">
+    `,
     `<a href="/create">create</a>`
   );
   response.send(html);
 });
 
 // 상세보기 구현
-app.get("/page/:pageId", function (request, response) {
+app.get("/page/:pageId", function (request, response, next) {
   var filteredId = path.parse(request.params.pageId).base;
   fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
-    var title = request.params.pageId;
-    var sanitizedTitle = sanitizeHtml(title);
-    var sanitizedDescription = sanitizeHtml(description, {
-      allowedTags: ["h1"],
-    });
-    var list = template.list(request.list);
-    var html = template.HTML(
-      sanitizedTitle,
-      list,
-      `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-      ` <a href="/create">create</a>
-          <a href="/update/${sanitizedTitle}">update</a>
-          <form action="/delete_process" method="post">
-            <input type="hidden" name="id" value="${sanitizedTitle}">
-            <input type="submit" value="delete">
-          </form>`
-    );
-    response.send(html);
+    if (err) {
+      next(err);
+    } else {
+      var title = request.params.pageId;
+      var sanitizedTitle = sanitizeHtml(title);
+      var sanitizedDescription = sanitizeHtml(description, {
+        allowedTags: ["h1"],
+      });
+      var list = template.list(request.list);
+      var html = template.HTML(
+        sanitizedTitle,
+        list,
+        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
+        ` <a href="/create">create</a>
+            <a href="/update/${sanitizedTitle}">update</a>
+            <form action="/delete_process" method="post">
+              <input type="hidden" name="id" value="${sanitizedTitle}">
+              <input type="submit" value="delete">
+            </form>`
+      );
+      response.send(html);
+    }
   });
 });
 
@@ -174,6 +180,17 @@ app.post("/delete_process", (request, response) => {
 // app.get("/", function (req, res) {
 //   return res.send("Hello World!");
 // });
+
+//미들웨어는 순차적으로 처리되기 때문에 더 이상 실행되지 못하고 마지막에 와서 404status를 보내기 위해 제일 하단부에 위치시킨다.
+app.use(function (req, res, next) {
+  res.status(404).send("Sorry cant find that!");
+});
+
+// 에러핸들링을 위한 미들웨어는 네개의 인자를 받는다 => epxress에서는 네개의 인자를 받으면 에러핸들링을 하는 미들웨어로 정의된다
+app.use(function (err, req, res, next) {
+  console.error(err.stack);
+  res.status(404).send("Something broke!");
+});
 
 app.listen(3000, () => {
   console.log(`Example app listening at http://localhost:3000`);
