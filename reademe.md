@@ -1,1 +1,2 @@
-- Node.js 교과서 개정 2판 참고하며 공부한 내용
+- Node.js 교과서 개정 2판 참고
+- <a href = "https://opentutorials.org/course/3332">Open Tutorials 강의 참고</a>
