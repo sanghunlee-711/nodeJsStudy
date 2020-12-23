@@ -8,8 +8,11 @@ const { response } = require("express");
 var qs = require("querystring");
 let bodyParser = require("body-parser");
 let compression = require("compression");
+var topicRouter = require("./routes/topic");
+let helmet = require("helmet");
 
 //thirpary library(bodyparser) 써보기
+app.use(helmet());
 app.use(express.static("public")); //public directory안에서 static파일을 찾는 것이다. 정적파일 사용가능하게 하는 설정
 app.use(bodyParser.urlencoded({ extended: false })); // bodyparser가 들어오는 미들웨어를 표현하는 식임
 app.use(compression()); // 파일 전송시 압축과 해제를 도와주는 미들웨어
@@ -38,136 +41,7 @@ app.get("/", (request, response) => {
   response.send(html);
 });
 
-//생성기능
-app.get("/topic/create", (req, res) => {
-  var title = "WEB - create";
-  var list = template.list(req.list);
-  //form action="/create_process" 은 최상위 디렉토리에서 create_process경로를 찾는것이다 '/'를 기억하자 :)
-  var html = template.HTML(
-    title,
-    list,
-    `
-        <form action="/topic/create_process" method="post">
-          <p><input type="text" name="title" placeholder="title"></p>
-          <p>
-            <textarea name="description" placeholder="description"></textarea>
-          </p>
-          <p>
-            <input type="submit">
-          </p>
-        </form>
-      `,
-    ""
-  );
-  res.send(html);
-});
-
-app.post("/topic/create_process", (request, response) => {
-  // before use bodyparser
-  /*
-    var body = "";
-  request.on("data", function (data) {
-    body = body + data;
-  });
-  request.on("end", function () {
-    var post = qs.parse(body);
-    var title = post.title;
-    var description = post.description;
-    fs.writeFile(`data/${title}`, description, "utf8", function (err) {
-      response.writeHead(302, { Location: `/?id=${title}` });
-      response.end();
-    });
-  });
-  */
-
-  console.log(request.list);
-  let post = request.body; // use middleware(body parser)
-  let title = post.title;
-  let description = post.description;
-
-  fs.writeFile(`data/${title}`, description, "utf8", (err) => {
-    response.redirect(`/topic/${title}`);
-  });
-});
-
-//update
-app.get("/topic/update/:pageId", (request, response) => {
-  let filteredId = path.parse(request.params.pageId).base;
-  fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
-    var title = filteredId;
-    var list = template.list(request.list);
-    var html = template.HTML(
-      title,
-      list,
-      `
-          <form action="/topic/update_process" method="post">
-            <input type="hidden" name="id" value="${title}">
-            <p><input type="text" name="title" placeholder="title" value="${title}"></p>
-            <p>
-              <textarea name="description" placeholder="description">${description}</textarea>
-            </p>
-            <p>
-              <input type="submit">
-            </p>
-          </form>
-          `,
-      `<a href="/topic/create">create</a> <a href="/topic/update/${title}">update</a>`
-    );
-    response.send(html);
-  });
-});
-
-app.post("/topic/update_process", (request, response) => {
-  let post = request.body; // use body parser
-  let id = post.id;
-  let title = post.title;
-  let description = post.description;
-
-  fs.rename(`data/${id}`, `data/${title}`, (error) => {
-    fs.writeFile(`data/${title}`, description, "utf8", (err) => {
-      response.redirect(`/topic/${title}`);
-    });
-  });
-});
-
-//delete
-app.post("/topic/delete_process", (request, response) => {
-  let post = request.body;
-  let id = post.id;
-  let filteredId = path.parse(id).base;
-  fs.unlink(`data/${filteredId}`, (error) => {
-    response.redirect("/");
-  });
-});
-
-// 상세보기 구현
-app.get("/topic/:pageId", function (request, response, next) {
-  var filteredId = path.parse(request.params.pageId).base;
-  fs.readFile(`data/${filteredId}`, "utf8", function (err, description) {
-    if (err) {
-      next(err);
-    } else {
-      var title = request.params.pageId;
-      var sanitizedTitle = sanitizeHtml(title);
-      var sanitizedDescription = sanitizeHtml(description, {
-        allowedTags: ["h1"],
-      });
-      var list = template.list(request.list);
-      var html = template.HTML(
-        sanitizedTitle,
-        list,
-        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-        ` <a href="/topic/create">create</a>
-            <a href="/topic/update/${sanitizedTitle}">update</a>
-            <form action="/topic/delete_process" method="post">
-              <input type="hidden" name="id" value="${sanitizedTitle}">
-              <input type="submit" value="delete">
-            </form>`
-      );
-      response.send(html);
-    }
-  });
-});
+app.use("/topic", topicRouter); // /topic으로 시작하는 주소들에게 topicRouter라고 불리는 미들웨어를 적용한다는 뜻이다.
 
 //route paramter를 통해 값 전달
 
